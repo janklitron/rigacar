@@ -31,6 +31,25 @@ MCH_BONE_EXTENSION_LAYER = 14
 DEF_BONE_LAYER = 15
 MCH_BONE_LAYER = 31
 
+def ensure_mch_shp_collection(armature):
+    """Create or get a hidden collection for rig control bones."""
+    col = None
+
+    # Try find existing collection
+    if hasattr(armature.data, "collections"):
+        for c in armature.data.collections:
+            if c.name == "Rigacar_MCH_SHP":
+                col = c
+                break
+
+        if col is None:
+            col = armature.data.collections.new("Rigacar_MCH_SHP")
+
+        # Hide it
+        col.is_visible = False
+        col.is_solo = False
+
+    return col
 
 def deselect_edit_bones(ob):
     for b in ob.data.edit_bones:
@@ -88,12 +107,9 @@ def create_translation_x_driver(ob, bone, driver_data_path):
 
 
 def create_bone_group(pose, group_name, color_set, bone_names):
-    group = pose.bone_groups.new(name=group_name)
-    group.color_set = color_set
-    for bone_name in bone_names:
-        bone = pose.bones.get(bone_name)
-        if bone is not None:
-            bone.bone_group = group
+    # Bone groups were removed in Blender 4.x
+    # Keeping this as a dummy function for compatibility
+    return
 
 
 def name_range(prefix, nb=1000):
@@ -117,34 +133,34 @@ def define_custom_property(target, name, value, description=None, overridable=Tr
 
 
 def dispatch_bones_to_armature_layers(ob):
-    re_mch_bone = re.compile(r'^MCH-Wheel(Brake)?\.(Ft|Bk)\.[LR](\.\d+)?$')
-    default_visible_layers = [False] * 32
+    """
+    Blender 4.x replacement:
+    Put MCH/SHP bones into a hidden bone collection.
+    """
 
-    for b in ob.data.bones:
-        layers = [False] * 32
-        if b.name.startswith('DEF-'):
-            layers[DEF_BONE_LAYER] = True
-        elif b.name.startswith('MCH-'):
-            layers[MCH_BONE_LAYER] = True
-            if b.name in ('MCH-Body', 'MCH-Steering') or re_mch_bone.match(b.name):
-                layers[MCH_BONE_EXTENSION_LAYER] = True
-        else:
-            layer_num = ob.pose.bones[b.name].bone_group_index
-            layers[layer_num] = True
-            default_visible_layers[layer_num] = True
-        b.layers = layers
+    arm = ob.data
+    col = ensure_mch_shp_collection(ob)
 
-    ob.data.layers = default_visible_layers
+    if not col:
+        return
 
-    shape_bone_layers = [False] * 32
-    shape_bone_layers[CUSTOM_SHAPE_LAYER] = True
-    for b in ob.pose.bones:
-        if b.custom_shape:
-            if b.custom_shape_transform:
-                ob.pose.bones[b.custom_shape_transform.name].custom_shape = b.custom_shape
-                ob.data.bones[b.custom_shape_transform.name].layers = shape_bone_layers
-            else:
-                ob.data.bones[b.name].layers[CUSTOM_SHAPE_LAYER] = True
+    # Ensure pose exists
+    if not ob.pose:
+        return
+
+    for bone in arm.bones:
+        name = bone.name
+
+        if name.startswith("MCH-") or name.startswith("SHP-") or name.startswith("DEF-"):
+            pb = ob.pose.bones.get(name)
+            if pb:
+                # Assign to collection
+                if hasattr(pb, "bone_collections"):
+                    pb.bone_collections.clear()
+                    pb.bone_collections.link(col)
+
+                # Extra safety: hide in viewport
+                bone.hide = True
 
 
 class NameSuffix(object):
@@ -435,8 +451,8 @@ def generate_constraint_on_wheel_brake_bone(wheel_brake_pose_bone, wheel_pose_bo
     wheel_brake_pose_bone.lock_scale = (True, False, False)
     wheel_brake_pose_bone.custom_shape = get_widget('WGT-CarRig.WheelBrake')
     wheel_brake_pose_bone.bone.show_wire = True
-    wheel_brake_pose_bone.bone_group = wheel_pose_bone.bone_group
-    wheel_brake_pose_bone.bone.layers = wheel_pose_bone.bone.layers
+    # wheel_brake_pose_bone.bone_group = wheel_pose_bone.bone_group
+    # wheel_brake_pose_bone.bone.layers = wheel_pose_bone.bone.layers
 
     cns = wheel_brake_pose_bone.constraints.new('LIMIT_SCALE')
     cns.name = 'Brakes'
@@ -492,7 +508,6 @@ class ArmatureGenerator(object):
             self.generate_constraints_on_rig()
             self.ob.display_type = 'WIRE'
 
-            self.generate_bone_groups()
             dispatch_bones_to_armature_layers(self.ob)
         finally:
             self.ob.location += location
