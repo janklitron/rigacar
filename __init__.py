@@ -19,29 +19,18 @@
 # <pep8 compliant>
 
 bl_info = {
-    "name": "Rigacar (Generates Car Rig)",
-    "author": "David Gayerie",
+    "name": "Rigacar (Generates Car Rig) for 4.x+",
+    "author": "David Gayerie, Janklitron",
     "version": (7, 1),
     "blender": (2, 83, 0),
     "location": "View3D > Add > Armature",
     "description": "Adds a deformation rig for vehicules, generates animation rig and bake wheels animation.",
     "wiki_url": "http://digicreatures.net/articles/rigacar.html",
     "tracker_url": "https://github.com/digicreatures/rigacar/issues",
-    "category": "Rigging"}
+    "category": "Rigging",
+}
 
-
-if "bpy" in locals():
-    import importlib
-    if "bake_operators" in locals():
-        importlib.reload(bake_operators)
-    if "car_rig" in locals():
-        importlib.reload(car_rig)
-    if "widgets" in locals():
-        importlib.reload(widgets)
-else:
-    import bpy
-    from . import bake_operators
-    from . import car_rig
+import bpy
 
 
 def enumerate_ground_sensors(bones):
@@ -67,16 +56,20 @@ class RIGACAR_PT_mixin:
 
     @classmethod
     def is_car_rig(cls, context):
-        return context.object is not None and context.object.data is not None and 'Car Rig' in context.object.data
+        return (context.object is not None
+                and context.object.data is not None
+                and 'Car Rig' in context.object.data)
 
     @classmethod
     def is_car_rig_generated(cls, context):
         return cls.is_car_rig(context) and context.object.data['Car Rig']
 
     def display_generate_section(self, context):
+        from . import car_rig
         self.layout.operator(car_rig.POSE_OT_carAnimationRigGenerate.bl_idname, text='Generate')
 
     def display_bake_section(self, context):
+        from . import bake_operators
         self.layout.operator(bake_operators.ANIM_OT_carSteeringBake.bl_idname)
         self.layout.operator(bake_operators.ANIM_OT_carWheelsRotationBake.bl_idname)
         self.layout.operator(bake_operators.ANIM_OT_carClearSteeringWheelsRotation.bl_idname)
@@ -188,19 +181,25 @@ class RIGACAR_PT_groundSensorsView(bpy.types.Panel, RIGACAR_PT_mixin):
 
 
 def menu_entries(menu, context):
+    from . import car_rig
     menu.layout.operator(car_rig.OBJECT_OT_armatureCarDeformationRig.bl_idname, text="Car (deformation rig)", icon='AUTO')
 
 
 classes = (
-  RIGACAR_PT_rigProperties,
-  RIGACAR_PT_groundSensorsProperties,
-  RIGACAR_PT_animationRigView,
-  RIGACAR_PT_wheelsAnimationView,
-  RIGACAR_PT_groundSensorsView,
+    RIGACAR_PT_rigProperties,
+    RIGACAR_PT_groundSensorsProperties,
+    RIGACAR_PT_animationRigView,
+    RIGACAR_PT_wheelsAnimationView,
+    RIGACAR_PT_groundSensorsView,
 )
 
 
 def register():
+    import importlib
+    from . import bake_operators, car_rig
+    importlib.reload(bake_operators)
+    importlib.reload(car_rig)
+
     bpy.types.VIEW3D_MT_armature_add.append(menu_entries)
     for c in classes:
         bpy.utils.register_class(c)
@@ -209,6 +208,7 @@ def register():
 
 
 def unregister():
+    from . import bake_operators, car_rig
     bake_operators.unregister()
     car_rig.unregister()
     for c in classes:
