@@ -19,8 +19,8 @@
 # <pep8 compliant>
 
 bl_info = {
-    "name": "Rigacar (Generates Car Rig) for 4.x+",
-    "author": "David Gayerie, Janklitron",
+    "name": "Rigacar (Generates Car Rig)",
+    "author": "David Gayerie",
     "version": (7, 1),
     "blender": (2, 83, 0),
     "location": "View3D > Add > Armature",
@@ -72,6 +72,7 @@ class RIGACAR_PT_mixin:
         from . import bake_operators
         self.layout.operator(bake_operators.ANIM_OT_carSteeringBake.bl_idname)
         self.layout.operator(bake_operators.ANIM_OT_carWheelsRotationBake.bl_idname)
+        self.layout.operator(bake_operators.ANIM_OT_carSuspensionBake.bl_idname)
         self.layout.operator(bake_operators.ANIM_OT_carClearSteeringWheelsRotation.bl_idname)
 
     def display_rig_props_section(self, context):
